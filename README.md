@@ -10,9 +10,9 @@ Each .zip file contains a ready-to-play fake game, which can be extracted and la
 Check the Releases section or the file list of this repository to find the available archives.
 
 **🚀 How to Download a Game** <br>
-Go to the Releases section and locate the file named setup_FakeGames.exe.
+Go to the Releases section and locate the file named *setup_FakeGames.exe*.
 
-Click on setup_FakeGames.exe to start downloading.
+Click on *setup_FakeGames.exe* to start downloading.
 
 Simply run the .exe file on your computer, then follow the installation instructions to access the launcher.
 
