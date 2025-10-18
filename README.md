@@ -1,22 +1,22 @@
-# 🕹️ fakeGames - fauxJeux à télécharger
-Bienvenue sur le dépôt officiel de la collection fakeGames !
+<h1>🕹️ FakeGames – Downloadable Fake Games</h1>
+Welcome to the official repository for the FakeGames collection!
 
-Ce repository a vocation à regrouper tous les faux jeux développés dans le cadre du projet FakeGames.
-Chaque jeu est disponible sous forme d’archive .zip, facile à télécharger et à installer depuis le launcher.
+This repository brings together all the fake games developed as part of the FakeGames project.
+Each game is available as a .zip archive, easy to download and install through the launcher.
 
-**📦 Liste des jeux disponibles** <br>
-Tous les fichiers .zip contiennent un jeu prêt à être décompressé et lancé par le launcher.
+📦 Available Games
+Each .zip file contains a ready-to-play fake game, which can be extracted and launched directly from the FakeGames launcher.
 
-Consulte la section Releases ou la liste des fichiers de ce repo pour trouver les archives disponibles.
+Check the Releases section or the file list of this repository to find the available archives.
 
-**🚀 Comment télécharger un jeu ?** <br>
-Rendez-vous dans la section *fakeGames launcher*.
+🚀 How to Download a Game
+Go to the Releases section and locate the file named setup_FakeGames.exe.
 
-Cliquez sur l’archive *fakeGames setup* pour débuter le téléchargement.
+Click on setup_FakeGames.exe to start downloading.
 
-Lancer simplement le .exe sur votre ordinateur, puis suivez les instructions pour avoir accès au launcher.
+Simply run the .exe file on your computer, then follow the installation instructions to access the launcher.
 
-**💡 À propos** <br>
-Ce dépôt est la “bibliothèque centrale” de jeux FakeGames.
+💡 About
+This repository serves as the central library of FakeGames titles.
 
-Pour chaque nouveau faux jeu, une nouvelle archive .zip sera ajoutée à la liste.
+For each new fake game, a new .zip archive will be automatically added to the list and made available inside the launcher.
