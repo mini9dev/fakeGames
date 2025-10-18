@@ -1,4 +1,4 @@
-<h1>🕹️ FakeGames – Downloadable Fake Games</h1>
+# 🕹️ FakeGames – Downloadable Fake Games
 Welcome to the official repository for the FakeGames collection!
 
 This repository brings together all the fake games developed as part of the FakeGames project.
