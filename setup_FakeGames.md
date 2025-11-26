@@ -4,26 +4,24 @@
 
 ## Téléchargez le programme d'installation ici
 
-⚡ **Télécharger le setup complet via [Transfer.it](https://transfer.it/ton-lien-unique)**
+⚡ **Download the full installer here [Transfer.it](https://transfer.it/t/SQNywUk1DRTD)**
 
-📦 Ce lien héberge le fichier complet `setup_FakeGames.exe` car la limite GitHub est de 25MB.
+📦 This link hosts the full `setup_FakeGames.exe` file because GitHub limits uploads to 25MB.
 
 ---
 
 ### Instructions
 
-1. Cliquez sur le lien ci-dessus pour démarrer le téléchargement.
-2. Une fois téléchargé, lancez le fichier `setup_FakeGames.exe`.
-3. Profitez de FakeGames Launcher !
+1. Click the link above to start the download.
+2. Once downloaded, run the `setup_FakeGames.exe` file.
+3. Enjoy using FakeGames Launcher!
 
 ---
 
-#### Remarque
+#### Note
 
-Ce lien est sûr et directement géré par Transfer.it, le fichier est toujours à jour.
+This link is safe and managed by Transfer.it, the file is always up to date.
 
 ---
 
-*Merci de nous soutenir en faisant une ⭐ sur GitHub !*
-
-
+*Thank you for supporting us with a ⭐ on GitHub!*
