@@ -2,7 +2,7 @@
 
 ---
 
-## Téléchargez le programme d'installation ici
+## Download the installer here
 
 ⚡ **Download the full installer here [Transfer.it](https://transfer.it/t/SQNywUk1DRTD)**
 
@@ -25,3 +25,4 @@ This link is safe and managed by Transfer.it, the file is always up to date.
 ---
 
 *Thank you for supporting us with a ⭐ on GitHub!*
+
