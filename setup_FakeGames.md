@@ -24,9 +24,6 @@ Ce lien est sûr et directement géré par Transfer.it, le fichier est toujours 
 
 ---
 
----
-
 *Merci de nous soutenir en faisant une ⭐ sur GitHub !*
 
-[Contactez-nous](https://github.com/mini9dev/fakeGames/issues)
 
