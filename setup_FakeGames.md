@@ -4,7 +4,7 @@
 
 ## Download the installer here
 
-⚡ **Download the full installer here [Transfer.it](https://transfer.it/t/SQNywUk1DRTD)**
+⚡ **Download the full installer here [Transfer.it](https://transfer.it/t/aUPNpRlXjThZ)**
 
 📦 This link hosts the full `setup_FakeGames.exe` file because GitHub limits uploads to 25MB.
 
@@ -25,4 +25,5 @@ This link is safe and managed by Transfer.it, the file is always up to date.
 ---
 
 *Thank you for supporting us with a ⭐ on GitHub!*
+
 
