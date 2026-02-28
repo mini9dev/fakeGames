@@ -14,7 +14,7 @@ Click on the setup_FakeGames.md file and locate the transfer.it link.
 
 **⚠️ Note:** Due to GitHub file size limits, the setup executable is not stored here directly.
 Instead, clicking setup_FakeGames.exe will redirect you to download the full installer at Transfer.it: <br>
-[Download FakeGames Setup](setup_FakeGames)
+[Download FakeGames Setup](https://transfer.it/t/SQNywUk1DRTD)
 
 **💡 About** <br>
 This repository serves as the central library of FakeGames titles.
