@@ -22,3 +22,5 @@ This repository serves as the central library of FakeGames titles.
 For each new fake game, a new .zip archive will be automatically added to the list and made available inside the launcher.
 
 ![VirusTotal](https://github.com/mini9dev/fakeGames/blob/main/fakeGamesVirusTotal)
+
+[Analyze on Virustotal](https://www.virustotal.com/gui/file/437d51509c189d1e5aa4073776ebeb94afeef611f1b547d82b5aad3a3ee533c3)
