@@ -20,3 +20,5 @@ Instead, clicking setup_FakeGames.exe will redirect you to download the full ins
 This repository serves as the central library of FakeGames titles.
 
 For each new fake game, a new .zip archive will be automatically added to the list and made available inside the launcher.
+
+![VirusTotal](https://github.com/mini9dev/overwolf-presence/blob/main/fakeGamesSecure)
