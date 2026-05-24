@@ -13,10 +13,10 @@ https://github.com/mini9dev/fakeGames/releases/latest
 
 ## 🎮 How it works
 
-1. Install the launcher  
+1. Install the setup  
 2. Choose language (FR / EN)  
 3. Browse available FakeGames  
-4. Install & play instantly  
+4. Install & fake play instantly  
 
 ---
 
@@ -27,13 +27,6 @@ https://github.com/mini9dev/fakeGames/releases/latest
 - 📦 One-click installation  
 - 🔄 Automatic updates via launcher  
 - 🧩 No manual setup required  
-
----
-
-## ⚠️ Note
-
-All content is delivered through the launcher.  
-No game files are stored directly in this repository.
 
 ---
 
