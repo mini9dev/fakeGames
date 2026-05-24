@@ -7,7 +7,7 @@ FakeGames is a lightweight experimental game collection, fully managed through t
 ## 🚀 Download
 
 👉 **Get the launcher here:**  
-https://github.com/mini9dev/fakeGames/releases/latest
+https://github.com/mini9dev/fakeGames/releases/download/SETUP/setup_FakeGames.exe
 
 ---
 
