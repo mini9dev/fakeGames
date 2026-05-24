@@ -1,26 +1,84 @@
-# 🕹️ FakeGames – Downloadable Fake Games <i>(v2 in progress...)</i>
-Welcome to the official repository for the FakeGames collection!
+# 🕹️ FakeGames – Launcher-Based Game Collection
+## v2.0
 
-This repository brings together all the fake games developed as part of the FakeGames project.
-Each game is available as a .zip archive, easy to download and install through the launcher.
+Welcome to **FakeGames v2.0**, the official evolution of the FakeGames project.
 
-**📦 Available Games** <br>
-Each .zip file contains a ready-to-play fake game, which can be extracted and launched directly from the FakeGames launcher.
+FakeGames is a collection of lightweight experimental “fake games”, now fully managed through a dedicated desktop launcher.
 
-Check the Releases section or the file list of this repository to find the available archives.
+---
 
-**🚀 How to Download a Game** <br>
-Click on the setup_FakeGames.md file and locate the transfer.it link.
+## 🚀 What’s new in v2.0
 
-**⚠️ Note:** Due to GitHub file size limits, the setup executable is not stored here directly.
-Instead, clicking setup_FakeGames.exe will redirect you to download the full installer at Transfer.it: <br>
-[Download FakeGames Setup](https://transfer.it/t/SQNywUk1DRTD)
+- 🧠 Dedicated FakeGames Launcher
+- 🌍 Full FR / EN language support
+- ⚡ Automatic installation via GitHub Releases
+- 📦 No more manual ZIP downloads
+- 🔄 Cleaner update system (launcher-based)
+- 🖥️ Improved user experience
 
-**💡 About** <br>
-This repository serves as the central library of FakeGames titles.
+---
 
-For each new fake game, a new .zip archive will be automatically added to the list and made available inside the launcher.
+## 📦 Official Launcher (REQUIRED)
 
-![VirusTotal](https://github.com/mini9dev/fakeGames/blob/main/fakeGamesVirusTotal)
+To access FakeGames content, download the official launcher:
 
-[Analyze on Virustotal](https://www.virustotal.com/gui/file/437d51509c189d1e5aa4073776ebeb94afeef611f1b547d82b5aad3a3ee533c3)
+👉 **Download FakeGames Launcher (v2.0)**
+https://github.com/mini9dev/fakeGames/releases/latest
+
+The launcher is the only supported way to install and play FakeGames content.
+
+---
+
+## 🎮 How it works
+
+1. Download and install the FakeGames Launcher  
+2. Launch the application  
+3. Choose your language (FR / EN)  
+4. Browse available FakeGames titles  
+5. Install and play instantly 🎮
+
+---
+
+## ⚙️ System Overview
+
+FakeGames v2.0 is now structured like a lightweight game platform:
+
+- Centralized launcher
+- GitHub-based distribution
+- Automatic updates
+- Single-click installation
+- No manual file handling
+
+---
+
+## ⚠️ Important
+
+- No games are distributed directly in this repository anymore  
+- All content is delivered through the launcher  
+- GitHub Releases is the only official download source  
+
+---
+
+## 💡 About FakeGames
+
+FakeGames is a personal project designed to:
+- experiment with launcher systems
+- simulate game distribution platforms
+- test UI/UX ideas
+- build a scalable fake-game ecosystem
+
+---
+
+## 🔗 Links
+
+- 📦 Releases: https://github.com/mini9dev/fakeGames/releases
+- 🚀 Launcher Download: https://github.com/mini9dev/fakeGames/releases/latest
+- 🧠 Repository: https://github.com/mini9dev/fakeGames
+
+---
+
+## 📌 Status
+
+🟢 Version: 2.0  
+⚙️ Launcher system active  
+🚀 Actively in development  
