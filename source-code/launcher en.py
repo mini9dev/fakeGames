@@ -7,6 +7,7 @@ import tempfile
 import threading
 import time
 import webbrowser
+import json
 import zipfile
 from pathlib import Path, PureWindowsPath
 
@@ -30,6 +31,9 @@ IMAGE_CACHE_DIR = Path("cache_images")
 CUSTOM_DIR = Path("fakeGames_custom")
 ADS_FILE = Path("ads.json")
 WINDOW_SIZE = "1100x620"
+CATALOGUE_CACHE = Path("catalogue_cache.json")
+VERSION_URL = "https://github.com/mini9dev/fakeGames/releases/download/Version/version.json"
+CURRENT_VERSION = "2.0"
 
 for d in (DOWNLOADS_DIR, IMAGE_CACHE_DIR, CUSTOM_DIR):
     d.mkdir(parents=True, exist_ok=True)
@@ -143,6 +147,47 @@ def load_local_image(path: str, size=(420, 160)):
         return photo
     except Exception:
         return None
+
+
+def load_catalogue_cache():
+    try:
+        if CATALOGUE_CACHE.exists():
+            data = json.loads(CATALOGUE_CACHE.read_text(encoding="utf-8"))
+            if isinstance(data, list) and data:
+                return data
+    except Exception:
+        pass
+    return []
+
+
+def save_catalogue_cache(data: list):
+    try:
+        CATALOGUE_CACHE.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    except Exception:
+        pass
+
+
+def fetch_remote_catalogue():
+    r = requests.get(CATALOGUE_URL, timeout=10)
+    r.raise_for_status()
+    data = r.json()
+    return data if isinstance(data, list) else [data]
+
+
+def check_for_update():
+    try:
+        r = requests.get(VERSION_URL, timeout=6)
+        r.raise_for_status()
+        info = r.json()
+        latest = str(info.get("version", "")).strip()
+        url = info.get("url", "")
+        if latest and latest != CURRENT_VERSION:
+            return latest, url
+    except Exception:
+        pass
+    return None, None
 
 
 def default_ad():
@@ -1120,6 +1165,73 @@ class GameCard(ctk.CTkFrame):
         self.img_label.image = photo
 
 
+class UpdateModal(ctk.CTkToplevel):
+    def __init__(self, parent, latest_version, setup_url):
+        super().__init__(parent)
+        self.title("Update available")
+        self.geometry("420x220")
+        self.resizable(False, False)
+        self.configure(fg_color=BG_MODAL)
+        self.grab_set()
+        self.attributes("-topmost", True)
+        self._url = setup_url
+
+        self.update_idletasks()
+        px = parent.winfo_x() + (parent.winfo_width() - 420) // 2
+        py = parent.winfo_y() + (parent.winfo_height() - 220) // 2
+        self.geometry(f"420x220+{px}+{py}")
+
+        hdr = ctk.CTkFrame(self, fg_color="#13161e", height=50, corner_radius=0)
+        hdr.pack(fill="x")
+        hdr.pack_propagate(False)
+        ctk.CTkLabel(hdr, text="UPDATE AVAILABLE",
+                     font=ctk.CTkFont(family="Segoe UI Black", size=13, weight="bold"),
+                     text_color=ACCENT2).pack(side="left", padx=20, pady=13)
+
+        ctk.CTkFrame(self, height=1, fg_color=BORDER, corner_radius=0).pack(fill="x")
+
+        body = ctk.CTkFrame(self, fg_color="transparent")
+        body.pack(fill="both", expand=True, padx=24, pady=18)
+
+        ctk.CTkLabel(body,
+                     text=f"Version v{latest_version} is available  (current: v{CURRENT_VERSION})",
+                     font=ctk.CTkFont(size=12, weight="bold"),
+                     text_color=TEXT_PRIMARY).pack(anchor="w", pady=(0, 6))
+        ctk.CTkLabel(body,
+                     text="The setup will be downloaded in your browser.",
+                     font=ctk.CTkFont(size=11), text_color=TEXT_MUTED).pack(anchor="w", pady=(0, 16))
+
+        btn_row = ctk.CTkFrame(body, fg_color="transparent")
+        btn_row.pack(fill="x")
+        ctk.CTkButton(btn_row, text="Download & install",
+                      fg_color=ACCENT2, hover_color="#3db866",
+                      text_color="#0d0f14",
+                      font=ctk.CTkFont(size=12, weight="bold"),
+                      height=36, corner_radius=7,
+                      command=self._do_update).pack(side="left", padx=(0, 10))
+        ctk.CTkButton(btn_row, text="Later",
+                      fg_color="transparent", hover_color="#1a1f30",
+                      border_width=1, border_color=BORDER, text_color=TEXT_MUTED,
+                      font=ctk.CTkFont(size=12), height=36, corner_radius=7,
+                      command=self._close).pack(side="left")
+
+    def _do_update(self):
+        # 1) Ouvrir le setup dans le navigateur
+        if self._url:
+            webbrowser.open(self._url)
+        # 2) Ouvrir la page GitHub
+        webbrowser.open("https://github.com/mini9dev/fakegames")
+        # 3) Tuer le processus completement (threads daemon inclus)
+        os._exit(0)
+
+    def _close(self):
+        try:
+            self.grab_release()
+        except Exception:
+            pass
+        self.destroy()
+
+
 class Launcher(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -1141,6 +1253,7 @@ class Launcher(ctk.CTk):
         self.set_status("Loading catalogue...", ACCENT)
         threading.Thread(target=self._load_catalogue, daemon=True).start()
         threading.Thread(target=self._refresh_ads, daemon=True).start()
+        threading.Thread(target=self._check_update, daemon=True).start()
 
     def _section_label(self, parent, text, pady=(18, 6)):
         ctk.CTkLabel(
@@ -1291,31 +1404,24 @@ class Launcher(ctk.CTk):
     def _switch_tab(self, tab):
         self._current_tab = tab
         if tab == "catalogue":
-            # Active: solid indigo, hover = darker indigo
             self.tab_catalogue_btn.configure(
                 fg_color=ACCENT, hover_color=ACCENT_HOVER,
-                text_color=TEXT_PRIMARY, border_width=0
-            )
-            # Inactive: transparent with border, hover = subtle dark blue
+                text_color=TEXT_PRIMARY, border_width=0)
             self.tab_custom_btn.configure(
                 fg_color="transparent", hover_color="#1a1f30",
-                text_color=TEXT_MUTED, border_width=1, border_color=BORDER
-            )
+                text_color=TEXT_MUTED, border_width=1, border_color=BORDER)
             if not self.search_section.winfo_manager():
                 self.search_section.pack(fill="x")
         else:
-            # Active: solid orange, hover = darker orange
             self.tab_custom_btn.configure(
                 fg_color=ACCENT3, hover_color="#c07820",
-                text_color="#0d0f14", border_width=0
-            )
-            # Inactive: transparent with border, hover = subtle dark blue
+                text_color="#0d0f14", border_width=0)
             self.tab_catalogue_btn.configure(
                 fg_color="transparent", hover_color="#1a1f30",
-                text_color=TEXT_MUTED, border_width=1, border_color=BORDER
-            )
+                text_color=TEXT_MUTED, border_width=1, border_color=BORDER)
             self.search_section.pack_forget()
         self._render()
+
 
     def set_status(self, txt, color=TEXT_MUTED):
         self.status_lbl.configure(text=txt)
@@ -1345,17 +1451,33 @@ class Launcher(ctk.CTk):
             pass
 
     def _load_catalogue(self):
-        try:
-            r = requests.get(CATALOGUE_URL, timeout=10)
-            r.raise_for_status()
-            data = r.json()
-            self.catalog = data if isinstance(data, list) else [data]
-            self.after(0, lambda: self.set_status(f"{len(self.catalog)} games available", ACCENT2))
-        except Exception as e:
-            self.catalog = []
-            self.after(0, lambda: self.set_status("Loading error", RED_SOFT))
-            self.after(0, lambda: self.toast(f"Catalogue unavailable: {e}", RED_SOFT))
-        self.after(0, self._render)
+        cached = load_catalogue_cache()
+        if cached:
+            self.catalog = cached
+            self.after(0, lambda: self.set_status(
+                f"{len(self.catalog)} games (cache)", ACCENT2))
+            self.after(0, self._render)
+
+        def _refresh():
+            try:
+                fresh = fetch_remote_catalogue()
+                save_catalogue_cache(fresh)
+                changed = (fresh != self.catalog)
+                self.catalog = fresh
+                self.after(0, lambda: self.set_status(
+                    f"{len(self.catalog)} games available", ACCENT2))
+                if changed:
+                    self.after(0, self._render)
+            except Exception as e:
+                if not cached:
+                    self.catalog = []
+                    self.after(0, lambda: self.set_status("Loading error", RED_SOFT))
+                    self.after(0, lambda: self.toast(
+                        f"Catalogue unavailable: {e}", RED_SOFT))
+                    self.after(0, self._render)
+
+        threading.Thread(target=_refresh, daemon=True).start()
+
 
     def _is_installed(self, name):
         return (DOWNLOADS_DIR / sanitize_name(name)).exists()
@@ -1539,6 +1661,11 @@ class Launcher(ctk.CTk):
             self.toast(f"Error: {e}", RED_SOFT)
 
     def _reset_cache(self):
+        try:
+            if CATALOGUE_CACHE.exists():
+                CATALOGUE_CACHE.unlink()
+        except Exception:
+            pass
         self.set_status("Resetting...", ACCENT3)
 
         def worker():
@@ -1569,6 +1696,11 @@ class Launcher(ctk.CTk):
     def _open_create_modal(self):
         modal = CreateGameModal(self, on_success=self._on_custom_game_created)
         modal.focus()
+
+    def _check_update(self):
+        latest, url = check_for_update()
+        if latest:
+            self.after(800, lambda: UpdateModal(self, latest, url))
 
     def _on_custom_game_created(self, exe_path):
         self.toast("Custom game created!", ACCENT3)
