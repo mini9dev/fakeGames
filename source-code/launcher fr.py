@@ -7,6 +7,7 @@ import tempfile
 import threading
 import time
 import webbrowser
+import json
 import zipfile
 from pathlib import Path, PureWindowsPath
 
@@ -30,6 +31,9 @@ IMAGE_CACHE_DIR = Path("cache_images")
 CUSTOM_DIR = Path("fakeGames_custom")
 ADS_FILE = Path("ads.json")
 WINDOW_SIZE = "1100x620"
+CATALOGUE_CACHE = Path("catalogue_cache.json")
+VERSION_URL = "https://github.com/mini9dev/fakeGames/releases/download/Version/version.json"
+CURRENT_VERSION = "2.0"
 
 for d in (DOWNLOADS_DIR, IMAGE_CACHE_DIR, CUSTOM_DIR):
     d.mkdir(parents=True, exist_ok=True)
@@ -92,7 +96,6 @@ def make_placeholder_image(size=(160, 90), custom=False):
     cx, cy = size[0] // 2, size[1] // 2
     if custom:
         import math
-
         color = "#f0a030"
         draw.ellipse([cx - 20, cy - 20, cx + 20, cy + 20], fill="#2a2010")
         draw.ellipse([cx - 12, cy - 12, cx + 12, cy + 12], fill=color)
@@ -146,6 +149,47 @@ def load_local_image(path: str, size=(420, 160)):
         return None
 
 
+def load_catalogue_cache():
+    try:
+        if CATALOGUE_CACHE.exists():
+            data = json.loads(CATALOGUE_CACHE.read_text(encoding="utf-8"))
+            if isinstance(data, list) and data:
+                return data
+    except Exception:
+        pass
+    return []
+
+
+def save_catalogue_cache(data: list):
+    try:
+        CATALOGUE_CACHE.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    except Exception:
+        pass
+
+
+def fetch_remote_catalogue():
+    r = requests.get(CATALOGUE_URL, timeout=10)
+    r.raise_for_status()
+    data = r.json()
+    return data if isinstance(data, list) else [data]
+
+
+def check_for_update():
+    try:
+        r = requests.get(VERSION_URL, timeout=6)
+        r.raise_for_status()
+        info = r.json()
+        latest = str(info.get("version", "")).strip()
+        url = info.get("url", "")
+        if latest and latest != CURRENT_VERSION:
+            return latest, url
+    except Exception:
+        pass
+    return None, None
+
+
 def default_ad():
     return {
         "title": "Sponsor FakeGames",
@@ -167,7 +211,6 @@ def load_ads():
     try:
         if ADS_FILE.exists():
             import json
-
             return normalize(json.loads(ADS_FILE.read_text(encoding="utf-8")))
     except Exception:
         pass
@@ -293,7 +336,6 @@ def _rename_generated_exe(tmp: Path, build_name: str, exe_basename: str):
     generated = tmp / "dist" / f"{build_name}.exe"
     if not generated.exists():
         return None
-
     renamed = tmp / "dist" / f"{exe_basename}.exe"
     if generated != renamed:
         generated.rename(renamed)
@@ -305,7 +347,6 @@ def _copy_fake_game_to_destination(generated: Path, dest_folder: Path, path_part
     for part in path_parts:
         inner = inner / part
     inner.mkdir(parents=True, exist_ok=True)
-
     final = inner / f"{exe_basename}.exe"
     shutil.copy2(str(generated), str(final))
     return final
@@ -595,7 +636,7 @@ class CreateGameModal(ctk.CTkToplevel):
         ctk.CTkEntry(
             form,
             textvariable=self.exe_name_var,
-            placeholder_text="ex: Rune Dice\\Rune Dice\\Binaries\\Win64\\Rune Dice.exe",
+            placeholder_text="e.g. Rune Dice\\Rune Dice\\Binaries\\Win64\\Rune Dice.exe",
             fg_color="#13161e",
             border_color=BORDER,
             text_color=TEXT_PRIMARY,
@@ -623,9 +664,9 @@ class CreateGameModal(ctk.CTkToplevel):
         ctk.CTkLabel(
             info,
             text=(
-                "Le jeu sera cree dans : fakeGames_custom/<dossier racine>/\n"
-                "PyInstaller doit etre installe : pip install pyinstaller\n"
-                "La compilation prend environ 30 a 60 secondes."
+                "Game will be created in: fakeGames_custom/<root folder>/\n"
+                "PyInstaller must be installed: pip install pyinstaller\n"
+                "Compilation takes approximately 30 to 60 seconds."
             ),
             font=ctk.CTkFont(size=11),
             text_color="#5a7090",
@@ -865,25 +906,14 @@ class AdModal(ctk.CTkToplevel):
         )
         self.continue_canvas.pack(side="right")
         self.continue_bg = self.continue_canvas.create_rectangle(
-            1,
-            1,
-            self.continue_width - 1,
-            self.continue_height - 1,
-            fill=BG_INPUT,
-            outline=BORDER,
-            width=1,
+            1, 1, self.continue_width - 1, self.continue_height - 1,
+            fill=BG_INPUT, outline=BORDER, width=1,
         )
         self.continue_fill = self.continue_canvas.create_rectangle(
-            1,
-            1,
-            1,
-            self.continue_height - 1,
-            fill=ACCENT,
-            outline="",
+            1, 1, 1, self.continue_height - 1, fill=ACCENT, outline="",
         )
         self.continue_text = self.continue_canvas.create_text(
-            self.continue_width // 2,
-            self.continue_height // 2,
+            self.continue_width // 2, self.continue_height // 2,
             text="Patientez...",
             fill=TEXT_PRIMARY,
             font=("Segoe UI", 10, "bold"),
@@ -981,15 +1011,8 @@ class AdModal(ctk.CTkToplevel):
 
 class GameCard(ctk.CTkFrame):
     def __init__(
-        self,
-        parent,
-        game,
-        on_download,
-        on_launch,
-        on_uninstall,
-        on_ad_before_download=None,
-        installed=False,
-        is_custom=False,
+        self, parent, game, on_download, on_launch, on_uninstall,
+        on_ad_before_download=None, installed=False, is_custom=False,
     ):
         super().__init__(parent, corner_radius=10, fg_color=BG_CARD, border_width=1, border_color=BORDER)
         self.game = game
@@ -1017,36 +1040,25 @@ class GameCard(ctk.CTkFrame):
         desc = game.get("description", "Faux jeu cree localement." if is_custom else "Aucune description disponible.")
 
         name_lbl = ctk.CTkLabel(
-            self,
-            text=name,
+            self, text=name,
             font=ctk.CTkFont(family="Segoe UI", size=15, weight="bold"),
-            text_color=TEXT_PRIMARY,
-            anchor="w",
+            text_color=TEXT_PRIMARY, anchor="w",
         )
         name_lbl.grid(row=0, column=1, sticky="sw", padx=(0, 10), pady=(15, 2))
 
         desc_lbl = ctk.CTkLabel(
-            self,
-            text=desc,
+            self, text=desc,
             font=ctk.CTkFont(family="Segoe UI", size=11),
-            text_color=TEXT_MUTED,
-            anchor="w",
-            justify="left",
-            wraplength=340,
+            text_color=TEXT_MUTED, anchor="w", justify="left", wraplength=340,
         )
         desc_lbl.grid(row=1, column=1, sticky="nw", padx=(0, 8))
 
         badge_text = "Installe" if installed else "Disponible"
         badge_color = ACCENT2 if installed else TEXT_MUTED
         self.badge = ctk.CTkLabel(
-            self,
-            text=badge_text,
+            self, text=badge_text,
             font=ctk.CTkFont(size=10, weight="bold"),
-            text_color=badge_color,
-            fg_color="#0f1420",
-            corner_radius=5,
-            width=82,
-            height=22,
+            text_color=badge_color, fg_color="#0f1420", corner_radius=5, width=82, height=22,
         )
         self.badge.grid(row=2, column=1, sticky="nw", padx=(0, 8), pady=(4, 12))
 
@@ -1068,45 +1080,26 @@ class GameCard(ctk.CTkFrame):
         folder_key = self.game.get("_folder", sanitize_name(name)) if self.is_custom else sanitize_name(name)
         folder = base / folder_key
         self.action_btn = ctk.CTkButton(
-            self.btn_frame,
-            text="Lancer",
-            width=115,
-            height=36,
-            fg_color=ACCENT,
-            hover_color=ACCENT_HOVER,
-            font=ctk.CTkFont(size=12, weight="bold"),
-            corner_radius=7,
+            self.btn_frame, text="Lancer", width=115, height=36,
+            fg_color=ACCENT, hover_color=ACCENT_HOVER,
+            font=ctk.CTkFont(size=12, weight="bold"), corner_radius=7,
             command=lambda: self.on_launch(folder),
         )
         self.action_btn.pack(pady=(0, 6))
         ctk.CTkButton(
-            self.btn_frame,
-            text="Supprimer",
-            width=115,
-            height=30,
-            fg_color="transparent",
-            hover_color="#2a1520",
-            border_width=1,
-            border_color=RED_SOFT,
-            text_color=RED_SOFT,
-            font=ctk.CTkFont(size=11),
-            corner_radius=7,
+            self.btn_frame, text="Supprimer", width=115, height=30,
+            fg_color="transparent", hover_color="#2a1520",
+            border_width=1, border_color=RED_SOFT, text_color=RED_SOFT,
+            font=ctk.CTkFont(size=11), corner_radius=7,
             command=lambda: self.on_uninstall(self.game, self),
         ).pack()
 
     def _build_download_button(self):
         self.action_btn = ctk.CTkButton(
-            self.btn_frame,
-            text="Telecharger",
-            width=115,
-            height=36,
-            fg_color=BG_INPUT,
-            hover_color="#1f2946",
-            border_width=1,
-            border_color=ACCENT,
-            text_color=TEXT_PRIMARY,
-            font=ctk.CTkFont(size=12, weight="bold"),
-            corner_radius=7,
+            self.btn_frame, text="Telecharger", width=115, height=36,
+            fg_color=BG_INPUT, hover_color="#1f2946",
+            border_width=1, border_color=ACCENT, text_color=TEXT_PRIMARY,
+            font=ctk.CTkFont(size=12, weight="bold"), corner_radius=7,
             command=self._trigger_download,
         )
         self.action_btn.pack(pady=(0, 6))
@@ -1144,10 +1137,8 @@ class GameCard(ctk.CTkFrame):
         self.after(0, lambda: self.pbar_label.configure(text=f"{int(val * 100)}%"))
 
     def _retry_cb(self, attempt, max_retries):
-        self.after(
-            0,
-            lambda: self.pbar_label.configure(text=f"Retry {attempt}/{max_retries}...", text_color=ACCENT3),
-        )
+        self.after(0, lambda: self.pbar_label.configure(
+            text=f"Retry {attempt}/{max_retries}...", text_color=ACCENT3))
         self.after(0, lambda: self.pbar.set(0))
 
     def _on_done(self, ok, err):
@@ -1158,18 +1149,11 @@ class GameCard(ctk.CTkFrame):
             self.after(0, self._switch_to_installed)
             self.after(0, lambda: self.badge.configure(text="Installe", text_color=ACCENT2))
         else:
-            self.after(
-                0,
-                lambda: self.action_btn.configure(
-                    text="Reessayer",
-                    state="normal",
-                    fg_color="transparent",
-                    hover_color=ACCENT,
-                    border_width=1,
-                    border_color=ACCENT,
-                    text_color=TEXT_PRIMARY,
-                ),
-            )
+            self.after(0, lambda: self.action_btn.configure(
+                text="Reessayer", state="normal",
+                fg_color="transparent", hover_color=ACCENT,
+                border_width=1, border_color=ACCENT, text_color=TEXT_PRIMARY,
+            ))
 
     def _switch_to_installed(self):
         for w in self.btn_frame.winfo_children():
@@ -1179,6 +1163,73 @@ class GameCard(ctk.CTkFrame):
     def set_image(self, photo):
         self.img_label.configure(image=photo)
         self.img_label.image = photo
+
+
+class UpdateModal(ctk.CTkToplevel):
+    def __init__(self, parent, latest_version, setup_url):
+        super().__init__(parent)
+        self.title("Mise a jour disponible")
+        self.geometry("420x220")
+        self.resizable(False, False)
+        self.configure(fg_color=BG_MODAL)
+        self.grab_set()
+        self.attributes("-topmost", True)
+        self._url = setup_url
+
+        self.update_idletasks()
+        px = parent.winfo_x() + (parent.winfo_width() - 420) // 2
+        py = parent.winfo_y() + (parent.winfo_height() - 220) // 2
+        self.geometry(f"420x220+{px}+{py}")
+
+        hdr = ctk.CTkFrame(self, fg_color="#13161e", height=50, corner_radius=0)
+        hdr.pack(fill="x")
+        hdr.pack_propagate(False)
+        ctk.CTkLabel(hdr, text="MISE A JOUR DISPONIBLE",
+                     font=ctk.CTkFont(family="Segoe UI Black", size=13, weight="bold"),
+                     text_color=ACCENT2).pack(side="left", padx=20, pady=13)
+
+        ctk.CTkFrame(self, height=1, fg_color=BORDER, corner_radius=0).pack(fill="x")
+
+        body = ctk.CTkFrame(self, fg_color="transparent")
+        body.pack(fill="both", expand=True, padx=24, pady=18)
+
+        ctk.CTkLabel(body,
+                     text=f"Version v{latest_version} disponible  (actuelle : v{CURRENT_VERSION})",
+                     font=ctk.CTkFont(size=12, weight="bold"),
+                     text_color=TEXT_PRIMARY).pack(anchor="w", pady=(0, 6))
+        ctk.CTkLabel(body,
+                     text="Le setup va s'ouvrir dans votre navigateur.",
+                     font=ctk.CTkFont(size=11), text_color=TEXT_MUTED).pack(anchor="w", pady=(0, 16))
+
+        btn_row = ctk.CTkFrame(body, fg_color="transparent")
+        btn_row.pack(fill="x")
+        ctk.CTkButton(btn_row, text="Telecharger & installer",
+                      fg_color=ACCENT2, hover_color="#3db866",
+                      text_color="#0d0f14",
+                      font=ctk.CTkFont(size=12, weight="bold"),
+                      height=36, corner_radius=7,
+                      command=self._do_update).pack(side="left", padx=(0, 10))
+        ctk.CTkButton(btn_row, text="Plus tard",
+                      fg_color="transparent", hover_color="#1a1f30",
+                      border_width=1, border_color=BORDER, text_color=TEXT_MUTED,
+                      font=ctk.CTkFont(size=12), height=36, corner_radius=7,
+                      command=self._close).pack(side="left")
+
+    def _do_update(self):
+        # 1) Ouvrir le setup dans le navigateur
+        if self._url:
+            webbrowser.open(self._url)
+        # 2) Ouvrir la page GitHub
+        webbrowser.open("https://github.com/mini9dev/fakegames")
+        # 3) Tuer le processus completement (threads daemon inclus)
+        os._exit(0)
+
+    def _close(self):
+        try:
+            self.grab_release()
+        except Exception:
+            pass
+        self.destroy()
 
 
 class Launcher(ctk.CTk):
@@ -1202,11 +1253,11 @@ class Launcher(ctk.CTk):
         self.set_status("Chargement du catalogue...", ACCENT)
         threading.Thread(target=self._load_catalogue, daemon=True).start()
         threading.Thread(target=self._refresh_ads, daemon=True).start()
+        threading.Thread(target=self._check_update, daemon=True).start()
 
     def _section_label(self, parent, text, pady=(18, 6)):
         ctk.CTkLabel(
-            parent,
-            text=text,
+            parent, text=text,
             font=ctk.CTkFont(size=10, weight="bold"),
             text_color=TEXT_MUTED,
         ).pack(anchor="w", padx=18, pady=pady)
@@ -1217,32 +1268,17 @@ class Launcher(ctk.CTk):
     def _empty_state(self, title, subtitle, accent=ACCENT):
         wrap = ctk.CTkFrame(self.scroll, fg_color="transparent")
         wrap.pack(expand=True, fill="both", padx=28, pady=42)
-
         panel = ctk.CTkFrame(wrap, fg_color=BG_PANEL, corner_radius=10, border_width=1, border_color=BORDER)
         panel.pack(expand=True)
         ctk.CTkLabel(
-            panel,
-            text="FG",
+            panel, text="FG",
             font=ctk.CTkFont(family="Segoe UI Black", size=26, weight="bold"),
-            text_color=accent,
-            fg_color="#0b0f18",
-            corner_radius=8,
-            width=72,
-            height=52,
+            text_color=accent, fg_color="#0b0f18", corner_radius=8, width=72, height=52,
         ).pack(padx=46, pady=(30, 14))
+        ctk.CTkLabel(panel, text=title, font=ctk.CTkFont(size=16, weight="bold"), text_color=TEXT_PRIMARY).pack(padx=46)
         ctk.CTkLabel(
-            panel,
-            text=title,
-            font=ctk.CTkFont(size=16, weight="bold"),
-            text_color=TEXT_PRIMARY,
-        ).pack(padx=46)
-        ctk.CTkLabel(
-            panel,
-            text=subtitle,
-            font=ctk.CTkFont(size=12),
-            text_color=TEXT_MUTED,
-            wraplength=360,
-            justify="center",
+            panel, text=subtitle, font=ctk.CTkFont(size=12),
+            text_color=TEXT_MUTED, wraplength=360, justify="center",
         ).pack(padx=46, pady=(6, 30))
 
     def _build_ui(self):
@@ -1254,24 +1290,14 @@ class Launcher(ctk.CTk):
         brand.pack(side="left", padx=20, pady=9)
         brand_title = ctk.CTkFrame(brand, fg_color="transparent")
         brand_title.pack(anchor="w")
-        ctk.CTkLabel(
-            brand_title,
-            text="FAKEGAMES",
-            font=ctk.CTkFont(family="Segoe UI Black", size=21, weight="bold"),
-            text_color=ACCENT,
-        ).pack(side="left")
-        ctk.CTkLabel(
-            brand_title,
-            text="LAUNCHER",
-            font=ctk.CTkFont(family="Segoe UI", size=21),
-            text_color=TEXT_MUTED,
-        ).pack(side="left", padx=(6, 0))
-        ctk.CTkLabel(
-            brand,
-            text="Catalogue et faux jeux custom",
-            font=ctk.CTkFont(size=10),
-            text_color="#4f5870",
-        ).pack(anchor="w", pady=(0, 0))
+        ctk.CTkLabel(brand_title, text="FAKEGAMES",
+                     font=ctk.CTkFont(family="Segoe UI Black", size=21, weight="bold"),
+                     text_color=ACCENT).pack(side="left")
+        ctk.CTkLabel(brand_title, text="LAUNCHER",
+                     font=ctk.CTkFont(family="Segoe UI", size=21),
+                     text_color=TEXT_MUTED).pack(side="left", padx=(6, 0))
+        ctk.CTkLabel(brand, text="Catalogue et faux jeux custom",
+                     font=ctk.CTkFont(size=10), text_color="#4f5870").pack(anchor="w")
 
         status_box = ctk.CTkFrame(hdr, fg_color=BG_PANEL, corner_radius=8, border_width=1, border_color=BORDER)
         status_box.pack(side="right", padx=18, pady=14)
@@ -1292,29 +1318,18 @@ class Launcher(ctk.CTk):
         self._section_label(sidebar, "NAVIGATION", pady=(18, 7))
 
         self.tab_catalogue_btn = ctk.CTkButton(
-            sidebar,
-            text="Catalogue",
-            fg_color=ACCENT,
-            hover_color=ACCENT_HOVER,
-            text_color=TEXT_PRIMARY,
-            font=ctk.CTkFont(size=12, weight="bold"),
-            height=38,
-            corner_radius=7,
+            sidebar, text="Catalogue",
+            fg_color=ACCENT, hover_color=ACCENT_HOVER, text_color=TEXT_PRIMARY,
+            font=ctk.CTkFont(size=12, weight="bold"), height=38, corner_radius=7,
             command=lambda: self._switch_tab("catalogue"),
         )
         self.tab_catalogue_btn.pack(fill="x", padx=14, pady=(0, 4))
 
         self.tab_custom_btn = ctk.CTkButton(
-            sidebar,
-            text="Mes jeux custom",
-            fg_color="transparent",
-            hover_color=BG_PANEL,
-            border_width=1,
-            border_color=BORDER,
-            text_color=TEXT_MUTED,
-            font=ctk.CTkFont(size=12, weight="bold"),
-            height=38,
-            corner_radius=7,
+            sidebar, text="Mes jeux custom",
+            fg_color="transparent", hover_color="#1a1f30",
+            border_width=1, border_color=BORDER, text_color=TEXT_MUTED,
+            font=ctk.CTkFont(size=12, weight="bold"), height=38, corner_radius=7,
             command=lambda: self._switch_tab("custom"),
         )
         self.tab_custom_btn.pack(fill="x", padx=14, pady=(0, 14))
@@ -1330,31 +1345,20 @@ class Launcher(ctk.CTk):
         self._section_label(self.search_section, "FILTRES & TRIS", pady=(0, 6))
         self.search_var = ctk.StringVar()
         ctk.CTkEntry(
-            self.search_section,
-            textvariable=self.search_var,
+            self.search_section, textvariable=self.search_var,
             placeholder_text="Rechercher...",
-            fg_color=BG_INPUT,
-            border_color=BORDER,
-            text_color=TEXT_PRIMARY,
-            font=ctk.CTkFont(size=12),
-            height=36,
-            corner_radius=7,
+            fg_color=BG_INPUT, border_color=BORDER, text_color=TEXT_PRIMARY,
+            font=ctk.CTkFont(size=12), height=36, corner_radius=7,
         ).pack(fill="x", padx=14, pady=(0, 10))
         self.search_var.trace_add("write", lambda *_: self._schedule_render())
 
         self.sort_var = ctk.StringVar(value="Ordre du catalogue")
         ctk.CTkOptionMenu(
-            self.search_section,
-            variable=self.sort_var,
+            self.search_section, variable=self.sort_var,
             values=["Ordre du catalogue", "Nom (A-Z)", "Installes en premier"],
-            fg_color=BG_INPUT,
-            button_color=ACCENT,
-            button_hover_color=ACCENT_HOVER,
-            dropdown_fg_color=BG_INPUT,
-            text_color=TEXT_PRIMARY,
-            font=ctk.CTkFont(size=12),
-            corner_radius=7,
-            height=34,
+            fg_color=BG_INPUT, button_color=ACCENT, button_hover_color=ACCENT_HOVER,
+            dropdown_fg_color=BG_INPUT, text_color=TEXT_PRIMARY,
+            font=ctk.CTkFont(size=12), corner_radius=7, height=34,
             command=lambda _: self._render(),
         ).pack(fill="x", padx=14, pady=(0, 14))
 
@@ -1370,28 +1374,17 @@ class Launcher(ctk.CTk):
         self._divider(sidebar, pady=14)
 
         ctk.CTkButton(
-            sidebar,
-            text="+ Creer un faux jeu",
-            fg_color=ACCENT3,
-            hover_color="#c07820",
-            text_color="#0d0f14",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            height=38,
-            corner_radius=7,
+            sidebar, text="+ Creer un faux jeu",
+            fg_color=ACCENT3, hover_color="#c07820", text_color="#0d0f14",
+            font=ctk.CTkFont(size=12, weight="bold"), height=38, corner_radius=7,
             command=self._open_create_modal,
         ).pack(fill="x", padx=14, pady=(0, 8))
 
         ctk.CTkButton(
-            sidebar,
-            text="Reset cache & jeux",
-            fg_color="transparent",
-            hover_color="#2a1520",
-            border_width=1,
-            border_color=RED_SOFT,
-            text_color=RED_SOFT,
-            font=ctk.CTkFont(size=12),
-            height=36,
-            corner_radius=7,
+            sidebar, text="Reset cache & jeux",
+            fg_color="transparent", hover_color="#2a1520",
+            border_width=1, border_color=RED_SOFT, text_color=RED_SOFT,
+            font=ctk.CTkFont(size=12), height=36, corner_radius=7,
             command=self._reset_cache,
         ).pack(fill="x", padx=14, pady=(0, 8))
 
@@ -1411,19 +1404,24 @@ class Launcher(ctk.CTk):
     def _switch_tab(self, tab):
         self._current_tab = tab
         if tab == "catalogue":
-            self.tab_catalogue_btn.configure(fg_color=ACCENT, text_color=TEXT_PRIMARY, border_width=0)
+            self.tab_catalogue_btn.configure(
+                fg_color=ACCENT, hover_color=ACCENT_HOVER,
+                text_color=TEXT_PRIMARY, border_width=0)
             self.tab_custom_btn.configure(
-                fg_color="transparent", hover_color=BG_PANEL, text_color=TEXT_MUTED, border_width=1, border_color=BORDER
-            )
+                fg_color="transparent", hover_color="#1a1f30",
+                text_color=TEXT_MUTED, border_width=1, border_color=BORDER)
             if not self.search_section.winfo_manager():
                 self.search_section.pack(fill="x")
         else:
-            self.tab_custom_btn.configure(fg_color=ACCENT3, text_color="#0d0f14", border_width=0)
+            self.tab_custom_btn.configure(
+                fg_color=ACCENT3, hover_color="#c07820",
+                text_color="#0d0f14", border_width=0)
             self.tab_catalogue_btn.configure(
-                fg_color="transparent", hover_color=BG_PANEL, text_color=TEXT_MUTED, border_width=1, border_color=BORDER
-            )
+                fg_color="transparent", hover_color="#1a1f30",
+                text_color=TEXT_MUTED, border_width=1, border_color=BORDER)
             self.search_section.pack_forget()
         self._render()
+
 
     def set_status(self, txt, color=TEXT_MUTED):
         self.status_lbl.configure(text=txt)
@@ -1453,17 +1451,33 @@ class Launcher(ctk.CTk):
             pass
 
     def _load_catalogue(self):
-        try:
-            r = requests.get(CATALOGUE_URL, timeout=10)
-            r.raise_for_status()
-            data = r.json()
-            self.catalog = data if isinstance(data, list) else [data]
-            self.after(0, lambda: self.set_status(f"{len(self.catalog)} jeux disponibles", ACCENT2))
-        except Exception as e:
-            self.catalog = []
-            self.after(0, lambda: self.set_status("Erreur de chargement", RED_SOFT))
-            self.after(0, lambda: self.toast(f"Catalogue indisponible: {e}", RED_SOFT))
-        self.after(0, self._render)
+        cached = load_catalogue_cache()
+        if cached:
+            self.catalog = cached
+            self.after(0, lambda: self.set_status(
+                f"{len(self.catalog)} jeux (cache)", ACCENT2))
+            self.after(0, self._render)
+
+        def _refresh():
+            try:
+                fresh = fetch_remote_catalogue()
+                save_catalogue_cache(fresh)
+                changed = (fresh != self.catalog)
+                self.catalog = fresh
+                self.after(0, lambda: self.set_status(
+                    f"{len(self.catalog)} jeux disponibles", ACCENT2))
+                if changed:
+                    self.after(0, self._render)
+            except Exception as e:
+                if not cached:
+                    self.catalog = []
+                    self.after(0, lambda: self.set_status("Erreur de chargement", RED_SOFT))
+                    self.after(0, lambda: self.toast(
+                        f"Catalogue indisponible: {e}", RED_SOFT))
+                    self.after(0, self._render)
+
+        threading.Thread(target=_refresh, daemon=True).start()
+
 
     def _is_installed(self, name):
         return (DOWNLOADS_DIR / sanitize_name(name)).exists()
@@ -1497,8 +1511,7 @@ class Launcher(ctk.CTk):
             return
         for i, game in enumerate(filtered):
             card = GameCard(
-                self.scroll,
-                game,
+                self.scroll, game,
                 on_download=self._start_download,
                 on_launch=self._launch,
                 on_uninstall=self._uninstall,
@@ -1519,15 +1532,12 @@ class Launcher(ctk.CTk):
                 if folder.is_dir():
                     meta = folder / ".fakegame_meta"
                     display_name = meta.read_text(encoding="utf-8").strip() if meta.exists() else folder.name
-                    custom_games.append(
-                        {
-                            "name": display_name,
-                            "_folder": folder.name,
-                            "description": "Faux jeu cree localement.",
-                            "_path": str(folder),
-                        }
-                    )
-
+                    custom_games.append({
+                        "name": display_name,
+                        "_folder": folder.name,
+                        "description": "Faux jeu cree localement.",
+                        "_path": str(folder),
+                    })
         self._update_counts()
         if not custom_games:
             self._empty_state(
@@ -1536,17 +1546,14 @@ class Launcher(ctk.CTk):
                 accent=ACCENT3,
             )
             return
-
         for i, game in enumerate(custom_games):
             card = GameCard(
-                self.scroll,
-                game,
+                self.scroll, game,
                 on_download=self._start_download,
                 on_launch=self._launch,
                 on_uninstall=self._uninstall_custom,
                 on_ad_before_download=None,
-                installed=True,
-                is_custom=True,
+                installed=True, is_custom=True,
             )
             card.pack(fill="x", padx=18, pady=(8 if i == 0 else 4, 4))
 
@@ -1570,7 +1577,8 @@ class Launcher(ctk.CTk):
 
         def worker():
             ok, err = download_zip_with_progress(
-                url, dest, progress_cb=progress_cb, retry_cb=lambda a, m: (retry_cb(a, m), _ui_retry(a, m))
+                url, dest, progress_cb=progress_cb,
+                retry_cb=lambda a, m: (retry_cb(a, m), _ui_retry(a, m))
             )
             if ok:
                 self.after(0, lambda: self.set_status(f"{name} installe", ACCENT2))
@@ -1614,7 +1622,7 @@ class Launcher(ctk.CTk):
 
     def _finish_disk_refresh(self, mb):
         self._disk_refresh_pending = False
-        self.disk_lbl.configure(text=f"{mb / 1024:.2f} Go utilise" if mb >= 1024 else f"{mb:.1f} Mo utilise")
+        self.disk_lbl.configure(text=f"{mb / 1024:.2f} GB used" if mb >= 1024 else f"{mb:.1f} Mo utilise")
 
     def _launch(self, path: Path):
         exe = find_executable(path)
@@ -1653,6 +1661,11 @@ class Launcher(ctk.CTk):
             self.toast(f"Erreur: {e}", RED_SOFT)
 
     def _reset_cache(self):
+        try:
+            if CATALOGUE_CACHE.exists():
+                CATALOGUE_CACHE.unlink()
+        except Exception:
+            pass
         self.set_status("Reset en cours...", ACCENT3)
 
         def worker():
@@ -1683,6 +1696,11 @@ class Launcher(ctk.CTk):
     def _open_create_modal(self):
         modal = CreateGameModal(self, on_success=self._on_custom_game_created)
         modal.focus()
+
+    def _check_update(self):
+        latest, url = check_for_update()
+        if latest:
+            self.after(800, lambda: UpdateModal(self, latest, url))
 
     def _on_custom_game_created(self, exe_path):
         self.toast("Jeu custom cree !", ACCENT3)
