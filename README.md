@@ -33,3 +33,4 @@ https://github.com/mini9dev/fakeGames/releases/download/SETUP/setup_FakeGames.ex
 ## 📌 Status
 
 v2.0 – Active development 🚀
+v2.1 – currently under development 🔄
