@@ -1,6 +1,6 @@
 [Setup]
 AppName=FakeGames Launcher
-AppVersion=2.0
+AppVersion=update
 AppPublisher=swg
 AppId={{D1E0B870-1234-4F56-89AB-1234567890AB}}
 PrivilegesRequired=lowest
