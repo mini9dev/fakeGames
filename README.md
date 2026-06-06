@@ -1,4 +1,4 @@
-# 🕹️ FakeGames – Launcher (v2.0)
+# 🕹️ FakeGames – Launcher (v2.1)
 
 FakeGames is a lightweight experimental game collection, fully managed through the **FakeGames Launcher**.
 
@@ -20,17 +20,6 @@ https://github.com/mini9dev/fakeGames/releases/download/SETUP/setup_FakeGames.ex
 
 ---
 
-## ⚙️ Features (v2.0)
-
-- 🌍 FR / EN support  
-- ⚡ GitHub-based downloads  
-- 📦 One-click installation  
-- 🔄 Automatic updates via launcher  
-- 🧩 No manual setup required  
-
----
-
 ## 📌 Status
 
-v2.1 – currently under development 🔄 <br>
-v2.0 – Active development 🚀 
+v2.1 – Active development 🚀
