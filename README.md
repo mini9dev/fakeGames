@@ -22,4 +22,4 @@ https://github.com/mini9dev/fakeGames/releases/download/SETUP/setup_FakeGames.ex
 
 ## 📌 Status
 
-v2.1 – Active development 🚀
+v2.2 – Active development 🚀
