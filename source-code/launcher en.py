@@ -16,6 +16,12 @@ import requests
 import tkinter as tk
 from PIL import Image, ImageDraw
 
+try:
+    from pypresence import Presence as DiscordPresence
+    _PYPRESENCE_AVAILABLE = True
+except ImportError:
+    _PYPRESENCE_AVAILABLE = False
+
 def resource_path(relative_path):
     if hasattr(sys, "_MEIPASS"):
         return os.path.join(sys._MEIPASS, relative_path)
@@ -23,8 +29,10 @@ def resource_path(relative_path):
     
 ctk.set_default_color_theme("blue")
 
+APP_LANG = "en"
+
 CATALOGUE_URL = "https://github.com/mini9dev/fakeGames/releases/download/Catalogue/catalogue.json"
-ADS_URL = "https://github.com/mini9dev/fakeGames/releases/download/ADS/ads.json"
+ADS_URL       = "https://github.com/mini9dev/fakeGames/releases/download/ADS/ads.json"
 DOWNLOADS_DIR = Path("downloads")
 USER_DIR = Path("user")
 IMAGE_CACHE_DIR = USER_DIR / "cache_images"
@@ -33,8 +41,9 @@ ADS_FILE = Path("ads.json")
 WINDOW_SIZE = "1100x620"
 CATALOGUE_CACHE = USER_DIR / "catalogue_cache.json"
 VERSION_URL = "https://github.com/mini9dev/fakeGames/releases/download/Version/version.json"
-CURRENT_VERSION = "2.1"
+CURRENT_VERSION = "2.2"
 SETTINGS_FILE = USER_DIR / "settings.json"
+DISCORD_CLIENT_ID = "1513657360013459486"
 
 for d in (DOWNLOADS_DIR, IMAGE_CACHE_DIR, CUSTOM_DIR, USER_DIR):
     d.mkdir(parents=True, exist_ok=True)
@@ -106,7 +115,7 @@ def load_settings() -> dict:
             return json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
     except Exception:
         pass
-    return {"theme": "Dark"}
+    return {"theme": "Dark", "discord_presence": True}
 
 
 def save_settings(data: dict):
@@ -139,6 +148,70 @@ def apply_theme(name: str):
     RED_SOFT    = t["RED_SOFT"]
     ctk.set_appearance_mode(t["CTK_MODE"])
 
+
+# ── Discord Rich Presence ───────────────────────────────────────────────────
+class DiscordRPC:
+    def __init__(self):
+        self._rpc = None
+        self._connected = False
+        self._lock = threading.Lock()
+
+    def connect(self):
+        if not _PYPRESENCE_AVAILABLE:
+            return
+        def _try():
+            try:
+                rpc = DiscordPresence(DISCORD_CLIENT_ID)
+                rpc.connect()
+                with self._lock:
+                    self._rpc = rpc
+                    self._connected = True
+                self.set_idle()
+            except Exception:
+                pass
+        threading.Thread(target=_try, daemon=True).start()
+
+    def set_idle(self):
+        self._update(
+            details="FakeGames Launcher",
+            state="Bypass the orbs system with ease ;)",
+            large_image="fg-logo",
+            large_text="v" + CURRENT_VERSION,
+            buttons=[{"label": "Install the launcher", "url": "https://github.com/mini9dev/fakeGames"}],
+        )
+
+    def set_playing(self, game_name: str):
+        self._update(
+            details="FakeGames Launcher",
+            state=f"Pretending to play {game_name} to get more orbs :P",
+            large_image="fg-logo",
+            large_text="v" + CURRENT_VERSION,
+            buttons=[{"label": "Install the launcher", "url": "https://github.com/mini9dev/fakeGames"}],
+        )
+
+    def _update(self, **kwargs):
+        def _do():
+            with self._lock:
+                if not self._connected or self._rpc is None:
+                    return
+                try:
+                    self._rpc.update(start=int(time.time()), **kwargs)
+                except Exception:
+                    self._connected = False
+        threading.Thread(target=_do, daemon=True).start()
+
+    def disconnect(self):
+        with self._lock:
+            if self._rpc and self._connected:
+                try:
+                    self._rpc.close()
+                except Exception:
+                    pass
+            self._rpc = None
+            self._connected = False
+
+
+_discord_rpc = DiscordRPC()
 
 # Load and apply saved theme on startup
 _settings = load_settings()
@@ -272,9 +345,14 @@ def check_for_update():
         r = requests.get(VERSION_URL, timeout=6)
         r.raise_for_status()
         info = r.json()
-        latest    = str(info.get("version", "")).strip()
-        url       = info.get("url", "")
-        changelog = info.get("changelog", [])
+        latest = str(info.get("version", "")).strip()
+        url    = info.get("url", "")
+        # changelog peut etre une liste (ancienne spec) ou un dict {fr:[], en:[]}
+        raw = info.get("changelog", [])
+        if isinstance(raw, dict):
+            changelog = raw.get(APP_LANG, raw.get("fr", []))
+        else:
+            changelog = raw
         if latest and latest != CURRENT_VERSION:
             return latest, url, changelog
     except Exception:
@@ -282,11 +360,19 @@ def check_for_update():
     return None, None, []
 
 
+def _t(field):
+    """Resout un champ bilingue {fr:..., en:...} ou retourne la valeur directe."""
+    if isinstance(field, dict):
+        return field.get(APP_LANG, field.get("fr", ""))
+    return field or ""
+
+
 def default_ad():
     return {
-        "title": "Sponsor FakeGames",
-        "text": "Please wait a few seconds before the download.",
-        "button": "Open sponsor",
+        "title": {"fr": "Sponsor FakeGames", "en": "FakeGames Sponsor"},
+        "text":  {"fr": "Merci de patienter quelques secondes avant le telechargement.",
+                  "en": "Please wait a few seconds before the download starts."},
+        "button":{"fr": "Ouvrir le sponsor", "en": "Open sponsor"},
         "url": "",
         "image": "",
         "seconds": 6,
@@ -297,8 +383,19 @@ def load_ads():
     def normalize(data):
         if isinstance(data, dict):
             data = [data]
-        ads = [ad for ad in data if isinstance(ad, dict)]
-        return ads or [default_ad()]
+        result = []
+        for ad in data:
+            if not isinstance(ad, dict):
+                continue
+            result.append({
+                "title":   _t(ad.get("title", "")),
+                "text":    _t(ad.get("text", "")),
+                "button":  _t(ad.get("button", "")),
+                "url":     ad.get("url", ""),
+                "image":   ad.get("image", ""),
+                "seconds": ad.get("seconds", 6),
+            })
+        return result or [default_ad()]
 
     try:
         if ADS_FILE.exists():
@@ -314,8 +411,19 @@ def fetch_remote_ads():
     def normalize(data):
         if isinstance(data, dict):
             data = [data]
-        ads = [ad for ad in data if isinstance(ad, dict)]
-        return ads or []
+        result = []
+        for ad in data:
+            if not isinstance(ad, dict):
+                continue
+            result.append({
+                "title":   _t(ad.get("title", "")),
+                "text":    _t(ad.get("text", "")),
+                "button":  _t(ad.get("button", "")),
+                "url":     ad.get("url", ""),
+                "image":   ad.get("image", ""),
+                "seconds": ad.get("seconds", 6),
+            })
+        return result
 
     r = requests.get(ADS_URL, timeout=8)
     r.raise_for_status()
@@ -1485,6 +1593,11 @@ class Launcher(ctk.CTk):
         threading.Thread(target=self._load_catalogue, daemon=True).start()
         threading.Thread(target=self._refresh_ads, daemon=True).start()
         threading.Thread(target=self._check_update, daemon=True).start()
+        # Discord Presence
+        settings = load_settings()
+        if settings.get("discord_presence", True):
+            _discord_rpc.connect()
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _section_label(self, parent, text, pady=(18, 6)):
         ctk.CTkLabel(
@@ -1595,7 +1708,7 @@ class Launcher(ctk.CTk):
         self.sort_var = ctk.StringVar(value="Catalogue order")
         ctk.CTkOptionMenu(
             self.search_section, variable=self.sort_var,
-            values=["Catalogue order", "Name (A-Z)", "Installeds en premier"],
+            values=["Catalogue order", "Name (A-Z)", "Installed first"],
             fg_color=BG_INPUT, button_color=ACCENT, button_hover_color=ACCENT_HOVER,
             dropdown_fg_color=BG_INPUT, text_color=TEXT_PRIMARY,
             font=ctk.CTkFont(size=12), corner_radius=7, height=34,
@@ -1708,7 +1821,7 @@ class Launcher(ctk.CTk):
             except Exception as e:
                 if not cached:
                     self.catalog = []
-                    self.after(0, lambda: self.set_status("Erreur de chargement", RED_SOFT))
+                    self.after(0, lambda: self.set_status("Loading error", RED_SOFT))
                     self.after(0, lambda: self.toast(
                         f"Catalogue unavailable: {e}", RED_SOFT))
                     self.after(0, self._render)
@@ -1808,7 +1921,9 @@ class Launcher(ctk.CTk):
             ctk.CTkFrame(self.scroll, height=1, fg_color=BORDER).pack(fill="x", padx=32, pady=(0, 8))
 
         def _on_theme_select(name):
-            save_settings({"theme": name})
+            s = load_settings()
+            s["theme"] = name
+            save_settings(s)
             self.toast(f"Theme '{name}' applied — restart the app for full effect.", ACCENT)
             self._render_settings()
 
@@ -1853,6 +1968,49 @@ class Launcher(ctk.CTk):
                               font=ctk.CTkFont(size=11),
                               command=lambda n=name: _on_theme_select(n),
                               ).pack(side="right", padx=14, pady=8)
+
+        # ── Discord Presence ──
+        _section("Discord Presence")
+
+        discord_enabled = load_settings().get("discord_presence", True)
+
+        discord_row = ctk.CTkFrame(self.scroll,
+                                   fg_color=BG_CARD if discord_enabled else "transparent",
+                                   corner_radius=8, border_width=1,
+                                   border_color="#5865f2" if discord_enabled else BORDER)
+        discord_row.pack(fill="x", padx=32, pady=3)
+
+        ctk.CTkFrame(discord_row, width=12, height=12, fg_color="#5865f2",
+                     corner_radius=6).pack(side="left", padx=(14, 10), pady=16)
+        ctk.CTkLabel(discord_row, text="Show status on Discord",
+                     font=ctk.CTkFont(size=12, weight="bold"),
+                     text_color=TEXT_PRIMARY).pack(side="left")
+        ctk.CTkLabel(discord_row, text="  —  Rich Presence on your profile",
+                     font=ctk.CTkFont(size=11), text_color=TEXT_MUTED).pack(side="left")
+
+        def _toggle_discord():
+            s = load_settings()
+            new_val = not s.get("discord_presence", True)
+            s["discord_presence"] = new_val
+            save_settings(s)
+            if new_val:
+                _discord_rpc.connect()
+                self.toast("Discord Presence enabled", "#5865f2")
+            else:
+                _discord_rpc.disconnect()
+                self.toast("Discord Presence disabled", TEXT_MUTED)
+            self._render_settings()
+
+        toggle_text = "✓ Enabled" if discord_enabled else "Enable"
+        toggle_fg   = "#5865f2" if discord_enabled else "transparent"
+        ctk.CTkButton(discord_row, text=toggle_text, width=90, height=28,
+                      corner_radius=6, fg_color=toggle_fg,
+                      hover_color="#4752c4", border_width=0 if discord_enabled else 1,
+                      border_color=BORDER,
+                      text_color=TEXT_PRIMARY if discord_enabled else TEXT_MUTED,
+                      font=ctk.CTkFont(size=11),
+                      command=_toggle_discord,
+                      ).pack(side="right", padx=14, pady=8)
 
         # ── Danger ──
         _section("Danger zone", color=RED_SOFT)
@@ -1945,6 +2103,8 @@ class Launcher(ctk.CTk):
             else:
                 os.startfile(str(path))
             self.toast(f"Launching {path.name}...")
+            if load_settings().get("discord_presence", True):
+                _discord_rpc.set_playing(path.name)
         except Exception as e:
             self.toast(f"Error: {e}", RED_SOFT)
 
@@ -1956,7 +2116,7 @@ class Launcher(ctk.CTk):
             self.toast(f"{name} deleted", TEXT_MUTED)
             self._render()
         except PermissionError:
-            self.toast(f"Close '{name}' avant de le deletedr.", RED_SOFT)
+            self.toast(f"Close '{name}' before deleting it.", RED_SOFT)
         except Exception as e:
             self.toast(f"Error: {e}", RED_SOFT)
 
@@ -1969,7 +2129,7 @@ class Launcher(ctk.CTk):
             self.toast(f"Custom game '{name}' deleted", TEXT_MUTED)
             self._render()
         except PermissionError:
-            self.toast(f"Close '{name}' avant de le deletedr.", RED_SOFT)
+            self.toast(f"Close '{name}' before deleting it.", RED_SOFT)
         except Exception as e:
             self.toast(f"Error: {e}", RED_SOFT)
 
@@ -1979,7 +2139,7 @@ class Launcher(ctk.CTk):
                 CATALOGUE_CACHE.unlink()
         except Exception:
             pass
-        self.set_status("Reset en cours...", ACCENT3)
+        self.set_status("Resetting...", ACCENT3)
 
         def worker():
             for folder in (IMAGE_CACHE_DIR, DOWNLOADS_DIR, CUSTOM_DIR):
@@ -1989,11 +2149,11 @@ class Launcher(ctk.CTk):
                     folder.mkdir(parents=True, exist_ok=True)
                 except PermissionError:
                     self.after(0, lambda: self.toast("Reset failed. Close all open games first.", RED_SOFT))
-                    self.after(0, lambda: self.set_status("Reset bloque", RED_SOFT))
+                    self.after(0, lambda: self.set_status("Reset blocked", RED_SOFT))
                     return
                 except Exception as e:
-                    self.after(0, lambda err=e: self.toast(f"Erreur reset: {err}", RED_SOFT))
-                    self.after(0, lambda: self.set_status("Erreur reset", RED_SOFT))
+                    self.after(0, lambda err=e: self.toast(f"Reset error: {err}", RED_SOFT))
+                    self.after(0, lambda: self.set_status("Reset error", RED_SOFT))
                     return
             _IMAGE_MEMORY_CACHE.clear()
             self.after(0, self._finish_reset_cache)
@@ -2002,7 +2162,7 @@ class Launcher(ctk.CTk):
 
     def _finish_reset_cache(self):
         self.toast("Cache and games cleared", TEXT_MUTED)
-        self.set_status("Cache reinitialise")
+        self.set_status("Cache cleared")
         self._last_disk_refresh = 0
         self._render()
 
@@ -2015,8 +2175,12 @@ class Launcher(ctk.CTk):
         if latest:
             self.after(800, lambda: UpdateModal(self, latest, url, changelog))
 
+    def _on_close(self):
+        _discord_rpc.disconnect()
+        self.destroy()
+
     def _on_custom_game_created(self, exe_path):
-        self.toast("Jeu custom cree !", ACCENT3)
+        self.toast("Custom game created!", ACCENT3)
         self._update_counts()
         self.after(600, lambda: self._switch_tab("custom"))
 
