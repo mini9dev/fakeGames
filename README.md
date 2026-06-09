@@ -1,4 +1,4 @@
-# 🕹️ FakeGames – Launcher (v2.1)
+# 🕹️ FakeGames – Launcher (v2.2)
 
 FakeGames is a lightweight experimental game collection, fully managed through the **FakeGames Launcher**.
 
